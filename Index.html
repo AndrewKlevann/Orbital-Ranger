@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#080d25">
+<title>ORBITAL RANGER — Earth Under Siege</title>
+<style>
+:root{color-scheme:dark;--cyan:#71f5ff;--gold:#ffd36a;--pink:#ff648e}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:#070b1d;color:#edf6ff;font-family:system-ui,-apple-system,Segoe UI,sans-serif}
+body{display:flex;justify-content:center;padding:14px}
+.shell{width:min(100%,1000px)}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 2px 10px}
+.brand small{display:block;color:#7f9bbd;font-size:10px;letter-spacing:3px;font-weight:900}
+.brand h1{margin:2px 0 0;font-size:clamp(21px,4vw,30px);letter-spacing:1px;line-height:1}
+.brand h1 span{color:var(--cyan)}
+.top button,.overlay button{border:1px solid #426184;background:#142444;color:#eafaff;border-radius:10px;padding:10px 14px;font-weight:800;cursor:pointer}
+.hud{display:grid;grid-template-columns:1.3fr .8fr .8fr;gap:8px;margin-bottom:9px}
+.hudbox{background:#101a35;border:1px solid #263d64;border-radius:11px;padding:8px 11px;min-width:0}
+.hudlabel{font-size:9px;letter-spacing:1.7px;color:#89a7ca;font-weight:900}
+.hudvalue{font-size:18px;font-weight:900;margin-top:1px}
+.healthrow{display:flex;align-items:center;gap:8px;margin-top:4px}
+.healthtrack{height:9px;flex:1;background:#34223b;border-radius:20px;overflow:hidden;border:1px solid #60405d}
+.healthfill{height:100%;width:100%;background:linear-gradient(90deg,#ff557f,#ff9a76);transition:width .2s}
+#healthText{font-size:11px;color:#ffdce7;font-weight:800}
+.stage{position:relative;border:1px solid #38517b;border-radius:15px;overflow:hidden;background:#080f2b;box-shadow:0 18px 60px #0009}
+canvas{display:block;width:100%;height:auto;aspect-ratio:16/10;touch-action:none;image-rendering:pixelated;cursor:crosshair}
+.bottom{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:9px 2px;color:#8da6c9;font-size:11px}
+.bottom b{color:#d9eaff}
+.touch-controls{display:none;justify-content:space-between;align-items:center;gap:12px;margin-top:10px;user-select:none}
+.pad{display:grid;grid-template-columns:repeat(3,43px);grid-template-rows:repeat(2,39px);gap:4px}
+.pad button,.fire{border:1px solid #35547d;background:#142444;color:#dffaff;border-radius:10px;font-size:17px;font-weight:900;touch-action:none}
+.pad button[data-dir=up]{grid-column:2}.pad button[data-dir=left]{grid-column:1;grid-row:2}.pad button[data-dir=down]{grid-column:2;grid-row:2}.pad button[data-dir=right]{grid-column:3;grid-row:2}
+.fire{width:94px;height:80px;color:#fff;background:linear-gradient(145deg,#a92e62,#60254f);border-color:#f46b9d;letter-spacing:1px}
+.overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(#050a20b8,#080e2cdb);padding:20px;text-align:center}
+.overlay.hidden{display:none}
+.dialog{width:min(100%,440px);padding:24px 22px;background:#101b39ed;border:1px solid #49648e;border-radius:17px;box-shadow:0 15px 60px #0009}
+.eyebrow{font-size:10px;letter-spacing:3px;color:var(--cyan);font-weight:900}
+.dialog h2{font-size:clamp(25px,5vw,39px);margin:7px 0;color:#fff;line-height:1.05}
+.dialog p{color:#b5c9e5;font-size:13px;line-height:1.6}
+.dialog button{margin-top:10px;background:linear-gradient(100deg,#31cce5,#4d8bff);border:0;color:#06152d;padding:12px 23px}
+.key{display:inline-block;border:1px solid #587398;background:#1b2b4c;border-radius:5px;padding:2px 6px;color:#effaff;font-weight:800;font-size:10px}
+@media(max-width:620px){body{padding:9px}.hud{gap:5px}.hudbox{padding:7px}.hudvalue{font-size:15px}.hudlabel{font-size:8px}.bottom{font-size:10px}.touch-controls{display:flex}.top button{padding:8px 10px;font-size:11px}}
+</style>
+</head>
+<body>
+<div class="shell">
+ <header class="top"><div class="brand"><small>DEEP SPACE DEFENSE DIVISION</small><h1>ORBITAL <span>RANGER</span></h1></div><button id="soundBtn" aria-label="Toggle music and sound effects">♫ AUDIO: OFF</button></header>
+ <section class="hud">
+  <div class="hudbox"><div class="hudlabel">RANGER VITALS</div><div class="healthrow"><div class="healthtrack"><div class="healthfill" id="healthFill"></div></div><span id="healthText">100%</span></div></div>
+  <div class="hudbox"><div class="hudlabel">WAVE</div><div class="hudvalue" id="wave">01 <span style="font-size:10px;color:#89a7ca">/ 05</span></div></div>
+  <div class="hudbox"><div class="hudlabel">SCORE</div><div class="hudvalue" id="score">00000</div></div>
+ </section>
+ <main class="stage">
+  <canvas id="game" width="960" height="600" aria-label="Orbital Ranger space shooter game"></canvas>
+  <div class="overlay" id="overlay"><div class="dialog">
+   <div class="eyebrow">EARTH DEFENSE // MISSION 001</div>
+   <h2 id="overlayTitle">THE SKY IS<br>UNDER ATTACK</h2>
+   <p id="overlayText">An alien fleet is closing in on Earth. Suit up, Ranger. Take them out before they breach the atmosphere.</p>
+   <p><b>MOVE</b> <span class="key">W</span> <span class="key">A</span> <span class="key">S</span> <span class="key">D</span> or arrow keys<br><b>AIM</b> mouse / touch &nbsp; <b>FIRE</b> click / <span class="key">SPACE</span></p>
+   <button id="startBtn">LAUNCH MISSION ▶</button>
+  </div></div>
+ </main>
+ <div class="touch-controls">
+  <div class="pad" aria-label="Movement controls"><button data-dir="up">▲</button><button data-dir="left">◀</button><button data-dir="down">▼</button><button data-dir="right">▶</button></div>
+  <button class="fire" id="fireBtn">FIRE<br>✦</button>
+ </div>
+ <div class="bottom"><span><b>MISSION:</b> Clear all five alien waves.</span><span>Earth's gravity is pulling you down… · 8-BIT SOUNDTRACK</span></div>
+</div>
+<script>
+(()=>{
+const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');
+const W=960,H=600,earth={x:480,y:790,r:340};
+const $=id=>document.getElementById(id);
+let running=false,gameOver=false,last=0,score=0,wave=1,health=100,player,aliens=[],shots=[],enemyShots=[],particles=[],keys={},pointer={x:480,y:270,down:false},spawnLeft=0,spawnTimer=0,wavePause=0,stars=[],sound=false,audio=null,musicTimer=null,musicStep=0,musicGain=null;
+const rand=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+for(let i=0;i<110;i++)stars.push({x:Math.random()*W,y:Math.random()*H,z:rand(.4,1.5),tw:rand(0,6.28)});
+function reset(){
+ score=0;wave=1;health=100;aliens=[];shots=[];enemyShots=[];particles=[];spawnLeft=8;spawnTimer=.5;wavePause=0;gameOver=false;
+ player={x:480,y:300,vx:0,vy:0,angle:0,cool:0,invuln:0};
+ updateHUD();$('overlay').classList.add('hidden');running=true;last=performance.now();if(sound)startMusic();requestAnimationFrame(loop);
+}
+function updateHUD(){$('healthFill').style.width=health+'%';$('healthText').textContent=health+'%';$('wave').innerHTML=String(wave).padStart(2,'0')+' <span style="font-size:10px;color:#89a7ca">/ 05</span>';$('score').textContent=String(score).padStart(5,'0')}
+function ensureAudio(){
+ try{
+  audio=audio||new(window.AudioContext||window.webkitAudioContext)();
+  if(audio.state==='suspended')audio.resume();
+  if(!musicGain){musicGain=audio.createGain();musicGain.gain.value=.13;musicGain.connect(audio.destination)}
+  return true;
+ }catch(e){return false}
+}
+function tone(freq=500,dur=.06,type='square',vol=.025){
+ if(!sound||!ensureAudio())return;
+ try{
+  let o=audio.createOscillator(),g=audio.createGain();
+  o.type=type;o.frequency.setValueAtTime(freq,audio.currentTime);
+  g.gain.setValueAtTime(vol,audio.currentTime);
+  g.gain.exponentialRampToValueAtTime(.001,audio.currentTime+dur);
+  o.connect(g);g.connect(audio.destination);o.start();o.stop(audio.currentTime+dur);
+ }catch(e){}
+}
+// Original, synthesized 8-bit-style loop. No external audio files are needed.
+function musicNote(freq,start,duration,volume=.12,type='square'){
+ if(!audio||!musicGain)return;
+ const osc=audio.createOscillator(),gain=audio.createGain();
+ osc.type=type;osc.frequency.setValueAtTime(freq,start);
+ gain.gain.setValueAtTime(.0001,start);
+ gain.gain.linearRampToValueAtTime(volume,start+.012);
+ gain.gain.exponentialRampToValueAtTime(.0001,start+duration);
+ osc.connect(gain);gain.connect(musicGain);
+ osc.start(start);osc.stop(start+duration+.02);
+}
+function musicTick(){
+ if(!sound||!audio||audio.state!=='running')return;
+ const t=audio.currentTime+.025;
+ const melody=[659.25,783.99,987.77,783.99,587.33,698.46,880,698.46,
+               523.25,659.25,783.99,659.25,587.33,698.46,880,1046.5];
+ const bass=[130.81,130.81,174.61,174.61,110,110,146.83,146.83];
+ const n=musicStep%16;
+ musicNote(melody[n],t,.13,.075,'square');
+ if(n%2===0)musicNote(bass[Math.floor(n/2)],t,.27,.12,'triangle');
+ if(n===0||n===8)musicNote(65.4,t,.09,.045,'sawtooth');
+ musicStep++;
+}
+function startMusic(){
+ if(!sound||!ensureAudio())return;
+ if(musicTimer)clearInterval(musicTimer);
+ musicStep=0;musicTick();musicTimer=setInterval(musicTick,165);
+}
+function stopMusic(){
+ if(musicTimer){clearInterval(musicTimer);musicTimer=null}
+}
+function roundRect(x,y,w,h,r,fill,stroke){ctx.beginPath();ctx.roundRect(x,y,w,h,r);if(fill){ctx.fillStyle=fill;ctx.fill()}if(stroke){ctx.strokeStyle=stroke;ctx.stroke()}}
+function drawEarth(){
+ const g=ctx.createRadialGradient(380,500,35,480,710,360);g.addColorStop(0,'#55d6d2');g.addColorStop(.38,'#1683b5');g.addColorStop(.75,'#103c83');g.addColorStop(1,'#07183e');
+ ctx.save();ctx.beginPath();ctx.arc(earth.x,earth.y,earth.r,Math.PI,Math.PI*2);ctx.lineTo(earth.x+earth.r,earth.y+earth.r);ctx.lineTo(earth.x-earth.r,earth.y+earth.r);ctx.closePath();ctx.fillStyle=g;ctx.fill();
+ ctx.save();ctx.beginPath();ctx.arc(earth.x,earth.y,earth.r,Math.PI,Math.PI*2);ctx.clip();
+ // pixelated continents
+ const land=[[290,570,100,35],[365,610,75,48],[520,560,115,40],[620,640,70,65],[420,690,95,35],[700,560,60,35],[240,690,70,45]];
+ land.forEach(([x,y,w,h],i)=>{ctx.fillStyle=i%2?'#54b77a':'#82cf83';ctx.fillRect(x,y,w,h);ctx.fillStyle='#b1e58b';ctx.fillRect(x+12,y+8,w*.42,h*.25)});
+ ctx.globalAlpha=.18;for(let i=0;i<18;i++){ctx.fillStyle='#d8ffff';ctx.fillRect(160+i*38,560+(i%4)*43,25,5)}
+ ctx.restore();ctx.strokeStyle='#62e9f4';ctx.lineWidth=5;ctx.beginPath();ctx.arc(earth.x,earth.y,earth.r-2,Math.PI,Math.PI*2);ctx.stroke();
+ const glow=ctx.createRadialGradient(480,455,10,480,455,180);glow.addColorStop(0,'#55e7ff00');glow.addColorStop(1,'#49cfff14');ctx.fillStyle=glow;ctx.fillRect(0,350,960,250);ctx.restore();
+}
+function drawBackground(t){
+ ctx.fillStyle='#080e29';ctx.fillRect(0,0,W,H);
+ // distant nebula
+ let neb=ctx.createRadialGradient(180,150,10,180,150,330);neb.addColorStop(0,'#392b7740');neb.addColorStop(1,'#392b7700');ctx.fillStyle=neb;ctx.fillRect(0,0,W,480);
+ stars.forEach(s=>{let a=.35+.55*(.5+.5*Math.sin(t*.001*s.z+s.tw));ctx.fillStyle=`rgba(190,224,255,${a})`;ctx.fillRect(s.x,s.y,Math.max(1,s.z*1.3),Math.max(1,s.z*1.3))});
+ // subtle orbital grid marks
+ ctx.strokeStyle='#35508020';ctx.lineWidth=1;for(let x=0;x<W;x+=80){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke()}
+ drawEarth();
+}
+function pixelRect(x,y,w,h,color){ctx.fillStyle=color;ctx.fillRect(Math.round(x),Math.round(y),w,h)}
+function drawRanger(){
+ const p=player;ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.angle);
+ // gun
+ pixelRect(8,-5,25,9,'#344b70');pixelRect(25,-3,14,5,'#8df7ff');pixelRect(13,3,9,7,'#182747');
+ // backpack
+ pixelRect(-17,-17,12,34,'#e6a94f');pixelRect(-20,-12,5,23,'#ffdc82');
+ // legs + boots
+ pixelRect(-10,12,9,13,'#a7c8df');pixelRect(2,12,9,13,'#a7c8df');pixelRect(-13,23,13,6,'#354e72');pixelRect(0,23,14,6,'#354e72');
+ // suit torso
+ pixelRect(-13,-12,27,29,'#e8f1f5');pixelRect(-10,-9,21,22,'#a8c5d9');pixelRect(-5,-5,12,12,'#ffb54d');
+ // arms
+ pixelRect(-20,-10,8,19,'#d9e7f1');pixelRect(12,-9,8,17,'#d9e7f1');pixelRect(15,1,8,7,'#e8f1f5');
+ // helmet
+ ctx.fillStyle='#eaf4fa';ctx.fillRect(-13,-30,27,25);ctx.fillStyle='#83e9f4';ctx.fillRect(-9,-25,19,14);ctx.fillStyle='#183b60';ctx.fillRect(-7,-23,15,9);ctx.fillStyle='#b6ffff';ctx.fillRect(-5,-22,5,3);
+ // helmet rim shine
+ ctx.fillStyle='#fff';ctx.fillRect(-10,-28,5,2);
+ if(p.invuln>0){ctx.globalAlpha=.3+.4*Math.sin(performance.now()*.04);ctx.strokeStyle='#a5faff';ctx.lineWidth=3;ctx.beginPath();ctx.arc(0,0,37,0,Math.PI*2);ctx.stroke()}
+ ctx.restore();
+}
+function drawAlien(a){
+ ctx.save();ctx.translate(a.x,a.y);ctx.rotate(Math.sin(a.phase)*.08);
+ const s=a.size;
+ // shadow/extrusion
+ ctx.fillStyle='#261b54';ctx.fillRect(-s*.65+5,-s*.25+7,s*1.3,s*.85);
+ // antenna
+ ctx.strokeStyle='#9affc8';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-s*.35,-s*.3);ctx.lineTo(-s*.55,-s*.75);ctx.lineTo(-s*.7,-s*.8);ctx.stroke();ctx.beginPath();ctx.moveTo(s*.35,-s*.3);ctx.lineTo(s*.55,-s*.75);ctx.stroke();
+ ctx.fillStyle='#a7ffb8';ctx.fillRect(-s*.72,-s*.9,6,6);ctx.fillRect(s*.48,-s*.9,6,6);
+ // body
+ ctx.fillStyle='#42d89a';ctx.fillRect(-s*.7,-s*.3,s*1.4,s*.8);ctx.fillStyle='#83ffc0';ctx.fillRect(-s*.55,-s*.42,s*1.1,s*.28);
+ // ears
+ ctx.fillStyle='#2cae83';ctx.fillRect(-s*.9,-s*.1,s*.25,s*.38);ctx.fillRect(s*.65,-s*.1,s*.25,s*.38);
+ // eyes
+ ctx.fillStyle='#142348';ctx.fillRect(-s*.42,-s*.12,s*.27,s*.3);ctx.fillRect(s*.16,-s*.12,s*.27,s*.3);
+ ctx.fillStyle='#fff';ctx.fillRect(-s*.36,-s*.1,s*.09,s*.1);ctx.fillRect(s*.22,-s*.1,s*.09,s*.1);
+ ctx.fillStyle='#276d75';ctx.fillRect(-s*.18,s*.22,s*.36,3);
+ ctx.fillStyle='#b5ffcb';ctx.fillRect(-s*.5,s*.5,s,5);
+ ctx.restore();
+}
+function draw(){
+ const t=performance.now();drawBackground(t);
+ // Earth gravity visual pull wisps
+ ctx.save();ctx.strokeStyle='#63dff022';ctx.setLineDash([4,12]);ctx.beginPath();ctx.moveTo(player.x,player.y+25);ctx.quadraticCurveTo(470,470,480,510);ctx.stroke();ctx.restore();
+ shots.forEach(s=>{ctx.save();ctx.translate(s.x,s.y);ctx.rotate(Math.atan2(s.vy,s.vx));ctx.fillStyle='#b9ffff';ctx.shadowColor='#61f7ff';ctx.shadowBlur=14;ctx.fillRect(-10,-2,21,4);ctx.restore()});
+ enemyShots.forEach(s=>{ctx.fillStyle='#ff709e';ctx.shadowColor='#ff3b8b';ctx.shadowBlur=12;ctx.beginPath();ctx.arc(s.x,s.y,5,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0});
+ aliens.forEach(drawAlien);
+ particles.forEach(p=>{ctx.globalAlpha=Math.max(0,p.life/p.max);ctx.fillStyle=p.color;ctx.fillRect(p.x,p.y,p.size,p.size);ctx.globalAlpha=1});
+ drawRanger();
+ // reticle
+ ctx.strokeStyle='#8ffaffaa';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(pointer.x,pointer.y,10,0,Math.PI*2);ctx.moveTo(pointer.x-16,pointer.y);ctx.lineTo(pointer.x-7,pointer.y);ctx.moveTo(pointer.x+7,pointer.y);ctx.lineTo(pointer.x+16,pointer.y);ctx.moveTo(pointer.x,pointer.y-16);ctx.lineTo(pointer.x,pointer.y-7);ctx.moveTo(pointer.x,pointer.y+7);ctx.lineTo(pointer.x,pointer.y+16);ctx.stroke();
+ // wave intro label
+ if(wavePause>0){ctx.fillStyle='#e8fbff';ctx.font='900 27px system-ui';ctx.textAlign='center';ctx.shadowColor='#48eaff';ctx.shadowBlur=18;ctx.fillText('WAVE '+String(wave).padStart(2,'0'),480,175);ctx.shadowBlur=0}
+}
+function burst(x,y,color='#9bffd0',n=12){for(let i=0;i<n;i++){let a=rand(0,Math.PI*2),v=rand(35,190);particles.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:rand(.25,.65),max:.65,size:rand(2,6),color})}}
+function spawnAlien(){
+ const side=Math.floor(Math.random()*4);let x,y;
+ if(side===0){x=rand(40,W-40);y=rand(45,115)}else if(side===1){x=rand(30,160);y=rand(120,390)}else if(side===2){x=rand(W-160,W-30);y=rand(120,390)}else{x=rand(100,W-100);y=rand(140,250)}
+ aliens.push({x,y,vx:0,vy:0,size:rand(25,34),speed:rand(32,48)+wave*5,phase:rand(0,6),shoot:rand(1.3,3),hp:1});
+}
+function fire(){
+ if(!running||busyFire)return;
+ const p=player;if(p.cool>0)return;p.cool=.19;
+ const a=p.angle;shots.push({x:p.x+Math.cos(a)*35,y:p.y+Math.sin(a)*35,vx:Math.cos(a)*650,vy:Math.sin(a)*650,life:1.3});
+ tone(760,.045,'square',.018);
+}
+let busyFire=false;
+function damage(){
+ if(player.invuln>0)return;health=Math.max(0,health-20);player.invuln=1.05;updateHUD();tone(130,.15,'sawtooth',.05);burst(player.x,player.y,'#ff759c',9);
+ if(health<=0){running=false;gameOver=true;showOverlay('SUIT BREACHED','The alien swarm got through your defenses. The Earth still needs you, Ranger.','TRY AGAIN');}
+}
+function showOverlay(title,text,button){$('overlayTitle').innerHTML=title;$('overlayText').textContent=text;$('startBtn').textContent=button;$('overlay').classList.remove('hidden')}
+function update(dt){
+ const p=player;
+ let dx=(keys.ArrowRight||keys.d?1:0)-(keys.ArrowLeft||keys.a?1:0),dy=(keys.ArrowDown||keys.s?1:0)-(keys.ArrowUp||keys.w?1:0);
+ if(dx||dy){let l=Math.hypot(dx,dy);p.vx+=dx/l*390*dt;p.vy+=dy/l*390*dt}
+ // Weak gravity toward Earth's center: a gentle constant downward drift, stronger near the planet.
+ const dist=Math.hypot(earth.x-p.x,earth.y-p.y);
+ const grav=24+Math.max(0,240-dist)*.045;
+ p.vy+=grav*dt;
+ p.vx*=Math.pow(.91,dt*60);p.vy*=Math.pow(.91,dt*60);
+ p.x+=p.vx*dt;p.y+=p.vy*dt;
+ p.x=clamp(p.x,28,W-28);p.y=clamp(p.y,40,465);
+ p.angle=Math.atan2(pointer.y-p.y,pointer.x-p.x);
+ p.cool=Math.max(0,p.cool-dt);p.invuln=Math.max(0,p.invuln-dt);
+ if(keys.Space||pointer.down)fire();
+ // alien spawn/waves
+ if(spawnLeft>0){spawnTimer-=dt;if(spawnTimer<=0){spawnAlien();spawnLeft--;spawnTimer=Math.max(.42,1.15-wave*.09)}}
+ else if(aliens.length===0&&enemyShots.length===0){
+  if(wave>=5){running=false;showOverlay('EARTH IS SAFE!','You survived all five waves and scored '+score+' points. You are a legend, Ranger.','PLAY AGAIN');return}
+  wavePause+=dt;if(wavePause>2.2){wave++;spawnLeft=8+wave*3;spawnTimer=.5;wavePause=0;health=Math.min(100,health+10);updateHUD();tone(520,.2,'triangle',.04)}
+ }
+ aliens.forEach(a=>{
+  a.phase+=dt*2.5;
+  const ax=p.x-a.x,ay=p.y-a.y,d=Math.max(1,Math.hypot(ax,ay));
+  a.vx+=(ax/d*a.speed-a.vx)*Math.min(1,dt*1.3);a.vy+=(ay/d*a.speed-a.vy)*Math.min(1,dt*1.3);
+  a.x+=a.vx*dt;a.y+=a.vy*dt;
+  a.shoot-=dt;if(a.shoot<=0){a.shoot=rand(1.6,2.7)-wave*.08;let ang=Math.atan2(p.y-a.y,p.x-a.x);enemyShots.push({x:a.x,y:a.y,vx:Math.cos(ang)*205,vy:Math.sin(ang)*205,life:3});tone(245,.09,'sawtooth',.012)}
+  if(d<30){damage();a.x+=ax/d*35;a.y+=ay/d*35}
+ });
+ shots.forEach(s=>{s.x+=s.vx*dt;s.y+=s.vy*dt;s.life-=dt});
+ enemyShots.forEach(s=>{s.x+=s.vx*dt;s.y+=s.vy*dt;s.life-=dt});
+ shots.forEach(s=>{if(s.life<=0)return;for(let i=aliens.length-1;i>=0;i--){let a=aliens[i];if(Math.hypot(s.x-a.x,s.y-a.y)<a.size*.8){s.life=0;burst(a.x,a.y,'#9bffc0',14);aliens.splice(i,1);score+=100;updateHUD();tone(310,.08,'triangle',.035);break}}});
+ enemyShots.forEach(s=>{if(s.life>0&&Math.hypot(s.x-p.x,s.y-p.y)<19){s.life=0;damage()}});
+ shots=shots.filter(s=>s.life>0&&s.x>-30&&s.x<W+30&&s.y>-30&&s.y<H+30);
+ enemyShots=enemyShots.filter(s=>s.life>0&&s.x>-30&&s.x<W+30&&s.y>-30&&s.y<H+30);
+ particles.forEach(p=>{p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.97;p.vy*=.97;p.life-=dt});particles=particles.filter(p=>p.life>0);
+}
+function loop(now){if(!running)return;let dt=Math.min(.033,(now-last)/1000||0);last=now;update(dt);draw();if(running)requestAnimationFrame(loop)}
+function coords(e){const r=canvas.getBoundingClientRect();return{x:(e.clientX-r.left)/r.width*W,y:(e.clientY-r.top)/r.height*H}}
+canvas.addEventListener('pointermove',e=>{pointer={...pointer,...coords(e)}});
+canvas.addEventListener('pointerdown',e=>{e.preventDefault();pointer={...pointer,...coords(e),down:true};fire()});
+window.addEventListener('pointerup',()=>pointer.down=false);
+window.addEventListener('keydown',e=>{let k=e.key.length===1?e.key.toLowerCase():e.key;if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key))e.preventDefault();keys[k===' '?'Space':k]=true;if(e.code==='Space')keys.Space=true});
+window.addEventListener('keyup',e=>{let k=e.key.length===1?e.key.toLowerCase():e.key;keys[k===' '?'Space':k]=false;if(e.code==='Space')keys.Space=false});
+document.querySelectorAll('[data-dir]').forEach(b=>{let k={up:'ArrowUp',down:'ArrowDown',left:'ArrowLeft',right:'ArrowRight'}[b.dataset.dir];b.addEventListener('pointerdown',e=>{e.preventDefault();keys[k]=true});['pointerup','pointerleave','pointercancel'].forEach(ev=>b.addEventListener(ev,()=>keys[k]=false))});
+$('fireBtn').addEventListener('pointerdown',e=>{e.preventDefault();keys.Space=true});['pointerup','pointerleave','pointercancel'].forEach(ev=>$('fireBtn').addEventListener(ev,()=>keys.Space=false));
+$('startBtn').addEventListener('click',reset);
+$('soundBtn').addEventListener('click',()=>{
+ sound=!sound;
+ $('soundBtn').textContent='♫ AUDIO: '+(sound?'ON':'OFF');
+ if(sound){ensureAudio();startMusic();tone(600,.1,'triangle',.025)}
+ else{stopMusic()}
+});
+drawBackground(0);player={x:480,y:300,vx:0,vy:0,angle:0,cool:0,invuln:0};pointer={x:480,y:180,down:false};draw();
+})();
+</script>
+</body>
+</html>
